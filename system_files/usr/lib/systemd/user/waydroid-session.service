@@ -1,0 +1,14 @@
+[Unit]
+Description=Sessão do Waydroid
+ConditionPathExists=/var/lib/waydroid/.extras-done
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+ExecStart=/usr/bin/waydroid session start
+ExecStop=/usr/bin/waydroid session stop
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=graphical-session.target

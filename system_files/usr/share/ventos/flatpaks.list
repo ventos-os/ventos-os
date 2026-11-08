@@ -1,0 +1,11 @@
+# app_id [opções de "flatpak override --system"]
+com.valvesoftware.Steam --filesystem=~/Games
+net.lutris.Lutris --filesystem=~/Games
+com.heroicgameslauncher.hgl --filesystem=~/Games
+io.github.streetpea.Chiaki4deck --device=all
+com.discordapp.Discord
+com.usebottles.bottles --filesystem=xdg-download --filesystem=xdg-documents --filesystem=xdg-desktop
+net.davidotek.pupgui2
+dev.eden_emu.eden --filesystem=xdg-download --filesystem=xdg-documents --filesystem=~/Games
+io.github.ryubing.Ryujinx --filesystem=xdg-download --filesystem=xdg-documents --filesystem=~/Games
+net.rpcs3.RPCS3 --filesystem=xdg-download --filesystem=xdg-documents --filesystem=~/Games

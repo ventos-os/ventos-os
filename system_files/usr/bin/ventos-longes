@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+# ventos-longes: Brave com perfil próprio, limitadores de CPU/RAM (cgroups do systemd) e atalhos de Tor.
+set -euo pipefail
+. /usr/libexec/emu-common.sh
+
+LIMITERS="on"; MEM_HIGH="3G"; MEM_MAX="4G"; CPU_QUOTA="200%"; PROFILE_DIR=""
+[ -f /etc/ventos-longes.conf ] && . /etc/ventos-longes.conf
+UCONF="${XDG_CONFIG_HOME:-$HOME/.config}/ventos-longes.conf"
+[ -f "$UCONF" ] && . "$UCONF"
+PROFILE_DIR="${PROFILE_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/ventos-longes/profile}"
+
+usage() {
+    cat <<'USAGE'
+Uso: ventos-longes [opções] [URL...]
+
+  --tor          janela Tor do Brave (acesso a serviços .onion)
+  --tor-browser  abre o Tor Browser oficial (torbrowser-launcher): anonimato de verdade
+  --eco          modo econômico (menos processos, sem aceleração de GPU)
+  --private      janela privada
+  --no-limits    sem limitadores de CPU/RAM nesta execução
+  -h, --help     esta ajuda
+
+Limites (CPU/RAM) em /etc/ventos-longes.conf ou ~/.config/ventos-longes.conf.
+USAGE
+}
+
+MODE=normal; ECO=off; ARGS=()
+for a in "$@"; do
+    case "$a" in
+        --tor) MODE=tor ;;
+        --tor-browser) MODE=torbrowser ;;
+        --eco) ECO=on ;;
+        --private) ARGS+=(--incognito) ;;
+        --no-limits) LIMITERS=off ;;
+        -h|--help) usage; exit 0 ;;
+        *) ARGS+=("$a") ;;
+    esac
+done
+
+if [ "$MODE" = torbrowser ]; then
+    command -v torbrowser-launcher >/dev/null || { notify "torbrowser-launcher não instalado"; exit 1; }
+    exec torbrowser-launcher
+fi
+
+BRAVE="$(command -v brave-browser || command -v brave-browser-stable || true)"
+[ -n "$BRAVE" ] || { notify "Brave não encontrado" "Ele deveria vir na imagem (brave-browser)."; exit 1; }
+
+mkdir -p "$PROFILE_DIR"
+FLAGS=(--user-data-dir="$PROFILE_DIR" --class=ventos-longes)
+[ "$MODE" = tor ] && FLAGS+=(--tor)
+[ "$ECO" = on ] && FLAGS+=(--renderer-process-limit=4 --disable-gpu)
+
+CMD=("$BRAVE" "${FLAGS[@]}" "${ARGS[@]}")
+
+if [ "$LIMITERS" = on ] && command -v systemd-run >/dev/null 2>&1; then
+    exec systemd-run --user --scope --quiet \
+        -p MemoryHigh="$MEM_HIGH" -p MemoryMax="$MEM_MAX" -p CPUQuota="$CPU_QUOTA" \
+        -- "${CMD[@]}"
+fi
+exec "${CMD[@]}"

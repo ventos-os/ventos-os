@@ -1,0 +1,9 @@
+{
+  "MetricsReportingEnabled": false,
+  "BackgroundModeEnabled": false,
+  "BlockThirdPartyCookies": true,
+  "DnsOverHttpsMode": "automatic",
+  "BraveRewardsDisabled": true,
+  "BraveWalletDisabled": true,
+  "BraveAIChatEnabled": false
+}

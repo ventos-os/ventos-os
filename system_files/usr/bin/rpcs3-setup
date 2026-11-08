@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# rpcs3-setup: instala o firmware do PS3 (PS3UPDAT.PUP) no RPCS3 (Flatpak)
+set -uo pipefail
+. /usr/libexec/emu-common.sh
+APP="net.rpcs3.RPCS3"; PS3_FIRMWARE_URL=""
+load_conf
+
+STATE="${XDG_STATE_HOME:-$HOME/.local/state}/emulators"; mkdir -p "$STATE"
+DONE="$STATE/rpcs3-firmware-done"
+[ -f "$DONE" ] && exit 0
+
+# Espera o Flatpak (instalado pelo serviço de primeiro boot), até 30 min
+for _ in $(seq 1 60); do flatpak info "$APP" >/dev/null 2>&1 && break; sleep 30; done
+flatpak info "$APP" >/dev/null 2>&1 || { notify "RPCS3 ainda não foi instalado" "Veja: journalctl -u flatpak-preinstall"; exit 1; }
+
+DL="$(xdg-user-dir DOWNLOAD 2>/dev/null || echo "$HOME/Downloads")"
+STAGE="$HOME/.var/app/$APP/cache/PS3UPDAT.PUP"   # pasta que o sandbox enxerga
+SRC="${1:-}"
+if [ -z "$SRC" ]; then
+    for c in "$DL/PS3UPDAT.PUP" "${XDG_CONFIG_HOME:-$HOME/.config}/emulators/PS3UPDAT.PUP"; do
+        [ -f "$c" ] && { SRC="$c"; break; }
+    done
+fi
+if [ -z "$SRC" ] && [ -n "$PS3_FIRMWARE_URL" ]; then
+    mkdir -p "$(dirname "$STAGE")"
+    curl -fL --retry 3 -o "$STAGE" "$PS3_FIRMWARE_URL" && SRC="$STAGE"
+fi
+if [ -z "$SRC" ]; then
+    if [ ! -f "$STATE/rpcs3-firmware-notified" ]; then
+        notify "O RPCS3 precisa do firmware do PS3" \
+               "Baixe o PS3UPDAT.PUP em playstation.com/en-us/support/hardware/ps3/system-software e salve em Downloads. A instalação começa sozinha."
+        touch "$STATE/rpcs3-firmware-notified"
+    fi
+    exit 0
+fi
+
+[ "$(head -c 5 -- "$SRC")" = "SCEUF" ] || { notify "Isso não parece um PS3UPDAT.PUP" "$SRC"; exit 1; }
+mkdir -p "$(dirname "$STAGE")"
+[ "$SRC" = "$STAGE" ] || cp -f -- "$SRC" "$STAGE"
+
+notify "Instalando o firmware do PS3" "Pode levar vários minutos."
+if flatpak run "$APP" --installfw "$STAGE"; then
+    rm -f "$STAGE"; touch "$DONE"; notify "Firmware do PS3 instalado"
+else
+    notify "Falha ao instalar o firmware" "Use Arquivo → Instalar firmware dentro do RPCS3."
+    exit 1
+fi

@@ -1,0 +1,28 @@
+[Desktop Entry]
+Type=Application
+Name=Ventos Longes
+GenericName=Navegador
+Comment=Navegador privado com limitadores de recursos e modo Tor
+Exec=/usr/bin/ventos-longes %U
+Icon=ventos-longes
+Terminal=false
+Categories=Network;WebBrowser;
+MimeType=text/html;x-scheme-handler/http;x-scheme-handler/https;
+StartupWMClass=ventos-longes
+Actions=new-private;tor;tor-browser;eco;
+
+[Desktop Action new-private]
+Name=Janela privada
+Exec=/usr/bin/ventos-longes --private
+
+[Desktop Action tor]
+Name=Janela Tor (.onion) via Brave
+Exec=/usr/bin/ventos-longes --tor
+
+[Desktop Action tor-browser]
+Name=Tor Browser (anonimato real)
+Exec=/usr/bin/ventos-longes --tor-browser
+
+[Desktop Action eco]
+Name=Modo econômico
+Exec=/usr/bin/ventos-longes --eco

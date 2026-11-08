@@ -1,0 +1,14 @@
+[Unit]
+Description=Configurar emuladores no primeiro login (Xenia e RPCS3)
+ConditionPathExists=!%h/.local/state/emulators/firstrun-done
+After=graphical-session.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/emulators-firstrun
+TimeoutStartSec=infinity
+Restart=on-failure
+RestartSec=300
+
+[Install]
+WantedBy=graphical-session.target

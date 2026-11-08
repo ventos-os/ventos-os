@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Abrir com Bottles (garrafa padrão)
+Comment=Executa programas do Windows na garrafa padrão do Bottles
+Exec=/usr/bin/bottles-open %f
+Icon=com.usebottles.bottles
+Terminal=false
+NoDisplay=true
+Categories=Utility;
+MimeType=application/vnd.microsoft.portable-executable;application/x-ms-dos-executable;application/x-msdownload;application/x-dosexec;application/x-msi;application/x-bat;application/x-msdos-program;application/x-ms-shortcut;

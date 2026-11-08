@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# ps-pkg-open: instala .pkg de PS3 no RPCS3 (PS3 e PS4 usam a mesma extensão; lê o cabeçalho)
+set -euo pipefail
+. /usr/libexec/emu-common.sh
+APP="net.rpcs3.RPCS3"
+
+[ $# -ge 1 ] || { echo "Uso: ps-pkg-open <arquivo.pkg>" >&2; exit 1; }
+FILE="$(realpath -- "$1")"
+[ -f "$FILE" ] || { notify "Arquivo não encontrado" "$FILE"; exit 1; }
+
+case "$(od -An -tx1 -N4 -- "$FILE" | tr -d ' \n')" in
+    7f504b47) ;;   # "\x7fPKG": PS3 (PSP/Vita também usam)
+    7f434e54) notify "Este é um PKG de PS4" "Instale pelo shadPS4 (menu de instalação de PKG)."; exit 1 ;;
+    *) notify "Não é um PKG de PlayStation" "$FILE"; exit 1 ;;
+esac
+flatpak info "$APP" >/dev/null 2>&1 || { notify "RPCS3 ainda não instalado" "Veja: journalctl -u flatpak-preinstall"; exit 1; }
+exec flatpak run "$APP" --installpkg "$FILE"

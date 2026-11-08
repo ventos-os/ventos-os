@@ -1,0 +1,168 @@
+#!/usr/bin/env bash
+# switch2-fetch: instala/atualiza emuladores de Switch 2 (AppImage) a partir das releases do GitHub
+set -euo pipefail
+
+# Repositórios (sobrescreva em /etc/switch2-fetch.conf se o projeto mudar de lugar)
+declare -A REPO=(
+    [lichii]="zortos293/Lichii"
+    [eglantine]="Djihads80/Eglantine"
+)
+declare -A TITLE=(
+    [lichii]="Lichii (Switch 2)"
+    [eglantine]="Eglantine (Switch 2)"
+)
+[ -f /etc/switch2-fetch.conf ] && source /etc/switch2-fetch.conf
+
+ORIG_ARGS=("$@")
+SCOPE=user
+WANT_PGO=true
+FORCE=false
+DRY=false
+TARGETS=()
+
+die() { echo "switch2-fetch: $*" >&2; exit 1; }
+
+usage() {
+    cat <<'USAGE'
+Uso: switch2-fetch [opções] [lichii|eglantine|all]
+
+  --system    instala para todos os usuários em /opt (pede sudo)
+  --no-pgo    prefere o build padrão em vez do PGO
+  --force     reinstala mesmo que a versão já seja a mais recente
+  --list      só mostra qual release/arquivo seria baixado
+  -h, --help  esta ajuda
+
+Sem --system, instala em ~/.local/share/switch2-emulators e cria o
+comando em ~/.local/bin e o atalho no menu de aplicativos.
+Defina GITHUB_TOKEN para evitar o limite de requisições da API.
+USAGE
+}
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --system) SCOPE=system ;;
+        --no-pgo) WANT_PGO=false ;;
+        --force)  FORCE=true ;;
+        --list)   DRY=true ;;
+        -h|--help) usage; exit 0 ;;
+        lichii|eglantine|all) TARGETS+=("$1") ;;
+        *) usage >&2; die "argumento desconhecido: $1" ;;
+    esac
+    shift
+done
+[ ${#TARGETS[@]} -gt 0 ] || TARGETS=(all)
+if [[ " ${TARGETS[*]} " == *" all "* ]]; then TARGETS=("${!REPO[@]}"); fi
+
+for c in curl jq sha256sum; do
+    command -v "$c" >/dev/null || die "dependência ausente: $c"
+done
+
+if [ "$SCOPE" = system ]; then
+    if [ "$EUID" -ne 0 ] && [ "$DRY" = false ]; then exec sudo "$0" "${ORIG_ARGS[@]}"; fi
+    ROOT=/opt/switch2-emulators
+    BIN=/usr/local/bin
+    APPS=/usr/local/share/applications
+else
+    DATA="${XDG_DATA_HOME:-$HOME/.local/share}"
+    ROOT="$DATA/switch2-emulators"
+    BIN="$HOME/.local/bin"
+    APPS="$DATA/applications"
+fi
+
+# Arquitetura: no x86_64 aceita nomes sem arquitetura, exceto os de ARM;
+# no aarch64 exige a marca de ARM no nome.
+case "$(uname -m)" in
+    x86_64)  MINE_RE='x86_64|amd64|x64';  OTHER_RE='aarch64|arm64'; NEED_MINE=false ;;
+    aarch64) MINE_RE='aarch64|arm64';     OTHER_RE='x86_64|amd64|x64'; NEED_MINE=true ;;
+    *) die "arquitetura não suportada: $(uname -m)" ;;
+esac
+
+AUTH=()
+[ -n "${GITHUB_TOKEN:-}" ] && AUTH=(-H "Authorization: Bearer $GITHUB_TOKEN")
+
+TMP="$(mktemp -d)"
+trap 'rm -rf "$TMP"' EXIT
+
+# Escolhe a release mais recente (inclusive pre-release) que tenha um AppImage utilizável.
+# Saída: tag <TAB> arquivo <TAB> url <TAB> digest
+pick_release() {
+    curl -fsSL -H 'Accept: application/vnd.github+json' "${AUTH[@]}" \
+        "https://api.github.com/repos/$1/releases?per_page=30" |
+    jq -r --arg mine "$MINE_RE" --arg other "$OTHER_RE" \
+          --argjson needmine "$NEED_MINE" --argjson pgo "$WANT_PGO" '
+        map(select(.draft | not))
+        | map({tag: .tag_name,
+               assets: [ .assets[]
+                         | select(.name | test("\\.AppImage$"; "i"))
+                         | select(if $needmine then (.name | test($mine; "i"))
+                                  else (.name | test($other; "i") | not) end) ]})
+        | map(select(.assets | length > 0))
+        | (first // empty)
+        | . as $r
+        | ([ $r.assets[] | select(.name | test("pgo"; "i")) ]) as $p
+        | ([ $r.assets[] | select(.name | test("pgo"; "i") | not) ]) as $s
+        | (if $pgo then $p + $s else $s + $p end)[0] as $a
+        | [$r.tag, $a.name, $a.browser_download_url, ($a.digest // "")]
+        | @tsv'
+}
+
+install_one() {
+    local name="$1" repo="${REPO[$1]}" info tag asset url digest safe dest cur
+    echo ">> $name ($repo)"
+
+    info="$(pick_release "$repo")" \
+        || { echo "   falha ao consultar a API (limite de requisições? defina GITHUB_TOKEN)" >&2; return 1; }
+    [ -n "$info" ] || { echo "   nenhuma release com AppImage para $(uname -m)" >&2; return 1; }
+    IFS=$'\t' read -r tag asset url digest <<<"$info"
+
+    echo "   release: $tag"
+    echo "   arquivo: $asset"
+    [ "$DRY" = true ] && return 0
+
+    cur="$(cat "$ROOT/$name/VERSION" 2>/dev/null || true)"
+    if [ "$cur" = "$tag" ] && [ "$FORCE" = false ]; then
+        echo "   já está na versão mais recente."
+        return 0
+    fi
+
+    curl -fL --retry 3 --progress-bar -o "$TMP/$asset" "$url"
+
+    if [[ "$digest" == sha256:* ]]; then
+        echo "${digest#sha256:}  $TMP/$asset" | sha256sum -c --quiet - \
+            || { echo "   checksum SHA-256 não confere, abortando." >&2; return 1; }
+        echo "   checksum SHA-256 verificado."
+    else
+        echo "   aviso: o GitHub não publicou checksum; integridade não verificada."
+    fi
+
+    safe="$(printf '%s' "$tag" | tr -c 'A-Za-z0-9._-' '_')"
+    dest="$ROOT/$name/versions/$safe"
+    mkdir -p "$dest" "$BIN" "$APPS"
+    install -m 0755 "$TMP/$asset" "$dest/$name.AppImage"
+    ln -sfn "$dest" "$ROOT/$name/current"
+    ln -sfn "$ROOT/$name/current/$name.AppImage" "$BIN/$name"
+    printf '%s\n' "$tag" > "$ROOT/$name/VERSION"
+
+    cat > "$APPS/$name.desktop" <<DESK
+[Desktop Entry]
+Type=Application
+Name=${TITLE[$name]}
+Comment=Emulador experimental de Nintendo Switch 2 (${tag})
+Exec=$BIN/$name %f
+Icon=applications-games
+Terminal=false
+Categories=Game;Emulator;
+DESK
+    command -v update-desktop-database >/dev/null && update-desktop-database "$APPS" 2>/dev/null || true
+
+    # Mantém só as 3 versões mais recentes (rollback fácil)
+    ls -1dt "$ROOT/$name/versions"/* | tail -n +4 | xargs -r rm -rf --
+
+    echo "   instalado: $BIN/$name"
+}
+
+rc=0
+for t in "${TARGETS[@]}"; do
+    install_one "$t" || rc=1
+done
+exit "$rc"

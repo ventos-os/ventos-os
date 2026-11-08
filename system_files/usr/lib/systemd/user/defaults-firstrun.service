@@ -1,0 +1,11 @@
+[Unit]
+Description=Ajustes padrão no primeiro login (Steam/Proton, Valorant, Chiaki-ng)
+ConditionPathExists=!%h/.local/state/ventos/defaults-done
+After=graphical-session.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/defaults-firstrun
+
+[Install]
+WantedBy=graphical-session.target

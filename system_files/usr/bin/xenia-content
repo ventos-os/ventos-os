@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# xenia-content: instala pacotes STFS (DLC, Title Updates, etc.) na pasta de conteúdo do Xenia
+set -euo pipefail
+. /usr/libexec/emu-common.sh
+[ $# -ge 1 ] || { echo "Uso: xenia-content <arquivo|pasta>..." >&2; exit 1; }
+
+BASE="${XENIA_BASE:-${XDG_DATA_HOME:-$HOME/.local/share}/xenia-canary}"
+[ -f "$BASE/exe-path" ] || { notify "Xenia ainda não instalado" "Rode xenia-setup."; exit 1; }
+CONTENT="$(dirname "$(cat "$BASE/exe-path")")/content/0000000000000000"
+
+hex() { od -An -tx1 -j "$2" -N "$3" -- "$1" 2>/dev/null | tr -d ' \n'; }
+n=0
+while IFS= read -r -d '' f; do
+    case "$(hex "$f" 0 4)" in 434f4e20|4c495645|50495253) ;; *) continue ;; esac   # "CON " | "LIVE" | "PIRS"
+    type="$(hex "$f" $((0x344)) 4)"; tid="$(hex "$f" $((0x360)) 4)"
+    [ "${#type}" -eq 8 ] && [ "${#tid}" -eq 8 ] || continue
+    dest="$CONTENT/${tid^^}/${type^^}"; b="$(basename "$f")"
+    mkdir -p "$dest"
+    if [ ! -f "$dest/$b" ] || [ "$(stat -c%s "$f")" != "$(stat -c%s "$dest/$b")" ]; then
+        cp -f -- "$f" "$dest/" && n=$((n + 1))
+        echo "instalado: $b -> ${tid^^}/${type^^}"
+    fi
+done < <(find "$@" -type f -print0)
+[ "$n" -gt 0 ] && notify "Xenia: $n pacote(s) de conteúdo instalado(s)" || true
+exit 0

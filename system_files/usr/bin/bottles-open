@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+# bottles-open: abre .exe/.msi/.bat/.lnk na garrafa padrão do Bottles
+set -euo pipefail
+
+APP_ID="com.usebottles.bottles"
+DEFAULT_BOTTLE="Padrao"
+BOTTLE_ENV="gaming"
+
+[ -f /etc/bottles-open.conf ] && source /etc/bottles-open.conf
+USER_CONF="${XDG_CONFIG_HOME:-$HOME/.config}/bottles-open.conf"
+[ -f "$USER_CONF" ] && source "$USER_CONF"
+
+notify() {
+    echo "bottles-open: $1 ${2:-}" >&2
+    command -v notify-send >/dev/null 2>&1 && notify-send -a "Bottles" "$1" "${2:-}" || true
+}
+
+if [ $# -lt 1 ]; then
+    echo "Uso: bottles-open <arquivo.exe|.msi|.bat|.lnk>" >&2
+    exit 1
+fi
+
+FILE="$(realpath -- "$1")"
+if [ ! -f "$FILE" ]; then
+    notify "Arquivo não encontrado" "$FILE"
+    exit 1
+fi
+
+case "${FILE,,}" in
+    *.exe|*.msi|*.bat|*.lnk) ;;
+    *) notify "Tipo de arquivo não suportado" "$FILE"; exit 1 ;;
+esac
+
+if ! flatpak info "$APP_ID" >/dev/null 2>&1; then
+    notify "Bottles ainda não está instalado" \
+           "A instalação roda no primeiro boot. Veja: journalctl -u flatpak-preinstall"
+    exit 1
+fi
+
+bottles_cli() { flatpak run --command=bottles-cli "$APP_ID" "$@"; }
+
+if ! bottles_cli list bottles 2>/dev/null | grep -qF -- "$DEFAULT_BOTTLE"; then
+    notify "Criando a garrafa '$DEFAULT_BOTTLE'" "Na primeira vez, o Bottles baixa os componentes. Pode demorar."
+    if ! bottles_cli new --bottle-name "$DEFAULT_BOTTLE" --environment "$BOTTLE_ENV"; then
+        notify "Falha ao criar a garrafa" "Abra o Bottles uma vez para concluir a configuração inicial."
+        exit 1
+    fi
+fi
+
+exec flatpak run --command=bottles-cli "$APP_ID" run -b "$DEFAULT_BOTTLE" -e "$FILE"

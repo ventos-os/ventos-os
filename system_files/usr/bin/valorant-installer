@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# valorant-installer: abre a página oficial ou roda o instalador baixado.
+# ATENÇÃO: o Riot Vanguard (anti-cheat de kernel) NÃO funciona no Linux; o jogo não vai iniciar.
+set -euo pipefail
+. /usr/libexec/emu-common.sh
+
+DL="$(xdg-user-dir DOWNLOAD 2>/dev/null || echo "$HOME/Downloads")"
+INSTALLER="$(find "$DL" -maxdepth 1 -type f -iname '*valorant*.exe' -printf '%T@ %p\n' 2>/dev/null \
+    | sort -rn | head -n1 | cut -d' ' -f2- || true)"
+
+if [ -z "$INSTALLER" ]; then
+    notify "Instalador do VALORANT não encontrado" \
+           "Abrindo a página oficial. Salve o instalador em Downloads e clique de novo."
+    xdg-open "https://playvalorant.com/download/" >/dev/null 2>&1 || true
+    exit 0
+fi
+
+notify "Aviso: o Riot Vanguard não funciona no Linux" \
+       "O instalador pode abrir, mas o jogo não vai iniciar."
+exec /usr/bin/bottles-open "$INSTALLER"

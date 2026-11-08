@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+# defaults-firstrun: ajustes por usuário no primeiro login
+#   - atalho do Valorant na área de trabalho
+#   - Steam: Proton ativo para todos os jogos
+#   - aviso para registrar o PS5 no Chiaki-ng
+set -uo pipefail
+. /usr/libexec/emu-common.sh
+
+STATE="${XDG_STATE_HOME:-$HOME/.local/state}/ventos"; mkdir -p "$STATE"
+[ -f "$STATE/defaults-done" ] && exit 0
+
+# 1) Atalho do instalador do Valorant na área de trabalho
+DESK="$(xdg-user-dir DESKTOP 2>/dev/null || echo "$HOME/Desktop")"
+mkdir -p "$DESK"
+if [ ! -e "$DESK/valorant-installer.desktop" ]; then
+    cp /usr/share/applications/valorant-installer.desktop "$DESK/" \
+        && chmod +x "$DESK/valorant-installer.desktop"
+fi
+
+# 2) Steam (Flatpak): "Ativar o Steam Play para todos os outros títulos" com Proton Experimental.
+#    Só cria o arquivo se ele ainda não existir (não mexe em configuração existente).
+STEAM_CFG="$HOME/.var/app/com.valvesoftware.Steam/.local/share/Steam/config"
+if [ ! -f "$STEAM_CFG/config.vdf" ]; then
+    mkdir -p "$STEAM_CFG"
+    cat > "$STEAM_CFG/config.vdf" <<'VDF'
+"InstallConfigStore"
+{
+	"Software"
+	{
+		"Valve"
+		{
+			"Steam"
+			{
+				"CompatToolMapping"
+				{
+					"0"
+					{
+						"name"		"proton_experimental"
+						"config"		""
+						"priority"		"75"
+					}
+				}
+			}
+		}
+	}
+}
+VDF
+fi
+
+# 3) Chiaki-ng: o registro do PS5 exige dados da sua conta PSN e um PIN do console
+notify "PS5: registre o console no Chiaki-ng" \
+       "Abra o Chiaki-ng, e em Configurações do PS5 → Remote Play → Vincular dispositivo, use o PIN. PS5 e PC na mesma rede."
+
+touch "$STATE/defaults-done"

@@ -1,0 +1,10 @@
+[Unit]
+Description=Atualizar emuladores baixados do GitHub (Switch 2, shadPS4)
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=/var/lib/emulators-firstboot-done
+
+[Service]
+Type=oneshot
+ExecStart=-/usr/bin/switch2-fetch --system all
+ExecStart=-/usr/bin/shadps4-update --system

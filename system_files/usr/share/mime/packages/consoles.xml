@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="application/x-nx-xci">
+    <comment>Nintendo Switch game card image (XCI)</comment>
+    <glob pattern="*.xci"/>
+  </mime-type>
+  <mime-type type="application/x-nx-nsp">
+    <comment>Nintendo Switch package (NSP)</comment>
+    <glob pattern="*.nsp"/>
+  </mime-type>
+  <mime-type type="application/x-xbox360-xex">
+    <comment>Xbox 360 executable (XEX)</comment>
+    <glob pattern="*.xex"/>
+  </mime-type>
+  <mime-type type="application/x-ps3-pkg">
+    <comment>PlayStation package (PKG)</comment>
+    <magic priority="60"><match type="string" value="\177PKG" offset="0"/></magic>
+    <glob pattern="*.pkg" weight="60"/>
+  </mime-type>
+  <mime-type type="application/x-ps4-self">
+    <comment>PlayStation 4 executable (SELF)</comment>
+    <magic priority="60"><match type="string" value="\117\025\075\035" offset="0"/></magic>
+  </mime-type>
+</mime-info>

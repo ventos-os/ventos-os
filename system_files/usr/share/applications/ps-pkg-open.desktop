@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Instalar PKG no RPCS3
+Comment=Instala .pkg de PS3 no RPCS3
+Exec=/usr/bin/ps-pkg-open %f
+Icon=applications-games
+Terminal=false
+NoDisplay=true
+Categories=Game;Emulator;
+MimeType=application/x-ps3-pkg;

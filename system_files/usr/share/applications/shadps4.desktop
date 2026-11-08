@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=shadPS4 (executável de PS4)
+Comment=Abre eboot.bin de PS4 no shadPS4
+Exec=/usr/bin/shadps4-open %f
+Icon=applications-games
+Terminal=false
+NoDisplay=true
+Categories=Game;Emulator;
+MimeType=application/x-ps4-self;

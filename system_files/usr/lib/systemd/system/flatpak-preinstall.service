@@ -1,0 +1,17 @@
+[Unit]
+Description=Instalar Flatpaks padrão (Steam, Heroic, Lutris, Chiaki-ng, Discord, Bottles, emuladores)
+ConditionPathExists=!/var/lib/ventos-flatpaks-done
+Requires=flatpak-setup-flathub.service
+After=flatpak-setup-flathub.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/flatpak-preinstall
+Restart=on-failure
+RestartSec=60
+TimeoutStartSec=infinity
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

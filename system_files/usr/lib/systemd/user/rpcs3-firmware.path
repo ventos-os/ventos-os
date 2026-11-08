@@ -1,0 +1,10 @@
+[Unit]
+Description=Detectar PS3UPDAT.PUP
+
+[Path]
+PathChanged=%h/Downloads/PS3UPDAT.PUP
+PathChanged=%h/.config/emulators/PS3UPDAT.PUP
+Unit=rpcs3-firmware.service
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# switch-open: abre jogos .xci/.nsp direto no emulador
+set -euo pipefail
+
+SWITCH_FLATPAK_ID="dev.eden_emu.eden"
+SWITCH_BIN=""
+[ -f /etc/switch-open.conf ] && source /etc/switch-open.conf
+USER_CONF="${XDG_CONFIG_HOME:-$HOME/.config}/switch-open.conf"
+[ -f "$USER_CONF" ] && source "$USER_CONF"
+
+notify() {
+    echo "switch-open: $1 ${2:-}" >&2
+    command -v notify-send >/dev/null 2>&1 && notify-send -a "Switch" "$1" "${2:-}" || true
+}
+
+[ $# -ge 1 ] || { echo "Uso: switch-open <jogo.xci|jogo.nsp>" >&2; exit 1; }
+
+FILE="$(realpath -- "$1")"
+[ -f "$FILE" ] || { notify "Arquivo não encontrado" "$FILE"; exit 1; }
+
+case "${FILE,,}" in
+    *.xci|*.nsp) ;;
+    *) notify "Tipo de arquivo não suportado" "$FILE"; exit 1 ;;
+esac
+
+if [ -n "$SWITCH_BIN" ]; then
+    [ -x "$SWITCH_BIN" ] || { notify "Emulador não encontrado" "$SWITCH_BIN"; exit 1; }
+    exec "$SWITCH_BIN" -g "$FILE"
+fi
+
+if ! flatpak info "$SWITCH_FLATPAK_ID" >/dev/null 2>&1; then
+    notify "Emulador ainda não está instalado" \
+           "A instalação roda no primeiro boot. Veja: journalctl -u flatpak-preinstall"
+    exit 1
+fi
+
+exec flatpak run "$SWITCH_FLATPAK_ID" -g "$FILE"

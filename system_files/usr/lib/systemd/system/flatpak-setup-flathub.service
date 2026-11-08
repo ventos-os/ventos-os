@@ -1,0 +1,16 @@
+[Unit]
+Description=Configurar o repositório Flathub (primeiro boot)
+ConditionPathExists=!/var/lib/flatpak-flathub-configured
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/flatpak remote-add --system --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+ExecStart=/usr/bin/flatpak remote-modify --system --enable flathub
+ExecStart=-/usr/bin/flatpak remote-delete --system --force fedora
+ExecStart=/usr/bin/touch /var/lib/flatpak-flathub-configured
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

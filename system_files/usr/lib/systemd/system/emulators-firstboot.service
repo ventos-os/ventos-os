@@ -1,0 +1,20 @@
+[Unit]
+Description=Baixar emuladores (Switch 2 e shadPS4) no primeiro boot
+ConditionPathExists=!/var/lib/emulators-firstboot-done
+After=network-online.target flatpak-preinstall.service waydroid-firstboot.service
+Wants=network-online.target
+StartLimitIntervalSec=1h
+StartLimitBurst=5
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/switch2-fetch --system all
+ExecStart=/usr/bin/shadps4-update --system
+ExecStart=/usr/bin/touch /var/lib/emulators-firstboot-done
+Restart=on-failure
+RestartSec=120
+TimeoutStartSec=infinity
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

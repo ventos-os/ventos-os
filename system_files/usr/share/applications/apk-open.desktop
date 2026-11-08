@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Instalar APK no Waydroid
+Comment=Instala aplicativos Android no Waydroid
+Exec=/usr/bin/apk-open %f
+Icon=waydroid
+Terminal=false
+NoDisplay=true
+Categories=System;
+MimeType=application/vnd.android.package-archive;

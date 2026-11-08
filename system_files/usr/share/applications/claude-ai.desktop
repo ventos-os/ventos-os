@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Claude
+Comment=Claude (claude.ai) como aplicativo, via Google Chrome
+Exec=/usr/bin/google-chrome-stable --app=https://claude.ai/
+Icon=internet-chat
+Terminal=false
+Categories=Network;Office;
+StartupWMClass=chrome-claude.ai__-Default

@@ -1,0 +1,8 @@
+[Unit]
+Description=Instalar o firmware do PS3 no RPCS3
+ConditionPathExists=!%h/.local/state/emulators/rpcs3-firmware-done
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/rpcs3-setup
+TimeoutStartSec=infinity

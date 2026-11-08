@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+# xenia-setup: instala/atualiza o Xenia Canary (build Windows) num prefixo Proton isolado
+set -euo pipefail
+. /usr/libexec/emu-common.sh
+XENIA_REPO="xenia-canary/xenia-canary-releases"
+XENIA_PROTON="GE-Proton"
+XENIA_ASSET_RE='^xenia_canary.*\.zip$'
+load_conf
+
+BASE="${XDG_DATA_HOME:-$HOME/.local/share}/xenia-canary"
+APP="$BASE/app"; PFX="$BASE/prefix"
+mkdir -p "$APP"
+TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
+
+command -v umu-run >/dev/null || { notify "umu-launcher ausente" "Não é possível criar o prefixo Proton."; exit 1; }
+AUTH=(); [ -n "${GITHUB_TOKEN:-}" ] && AUTH=(-H "Authorization: Bearer $GITHUB_TOKEN")
+
+info="$(curl -fsSL -H 'Accept: application/vnd.github+json' "${AUTH[@]}" \
+    "https://api.github.com/repos/$XENIA_REPO/releases?per_page=10" |
+  jq -r --arg re "$XENIA_ASSET_RE" '
+    map(select(.draft | not))
+    | map(. as $r
+          | ([ $r.assets[] | select(.name | test($re; "i"))
+                           | select(.name | test("linux|netplay|uwp|pdb|debug|appimage"; "i") | not) ] | first) as $a
+          | select($a)
+          | [$r.tag_name, $a.name, $a.browser_download_url, ($a.digest // ""), ($a.updated_at // "")])
+    | (first // empty) | @tsv')" || { notify "Falha ao consultar o GitHub" "Tentarei de novo depois."; exit 1; }
+[ -n "$info" ] || { notify "Nenhuma build Windows do Xenia Canary encontrada" "Confira XENIA_REPO."; exit 1; }
+IFS=$'\t' read -r tag asset url digest updated <<<"$info"
+
+ver="$tag|$updated"
+if [ "$(cat "$BASE/VERSION" 2>/dev/null || true)" != "$ver" ] || [ ! -f "$BASE/exe-path" ]; then
+    echo ">> Baixando $asset ($tag)"
+    curl -fL --retry 3 --progress-bar -o "$TMP/$asset" "$url"
+    if [[ "$digest" == sha256:* ]]; then
+        echo "${digest#sha256:}  $TMP/$asset" | sha256sum -c --quiet - || { notify "Checksum do Xenia não confere"; exit 1; }
+    else
+        echo "aviso: sem checksum publicado; integridade não verificada" >&2
+    fi
+    unzip -oq "$TMP/$asset" -d "$APP"     # sobrescreve só os arquivos do emulador; config e content ficam
+    exe="$(find "$APP" -maxdepth 2 -iname 'xenia_canary*.exe' | head -n1)"
+    [ -n "$exe" ] || { notify "xenia_canary.exe não encontrado no zip"; exit 1; }
+    echo "$exe" > "$BASE/exe-path"
+    touch "$(dirname "$exe")/portable.txt"   # config/content ficam ao lado do .exe
+    CFG="$(dirname "$exe")/xenia-canary.config.toml"
+    [ -f "$CFG" ] || printf '[GPU]\ngpu = "vulkan"\n' > "$CFG"
+    echo "$ver" > "$BASE/VERSION"
+fi
+
+# Prefixo Proton isolado (a 1ª vez baixa o GE-Proton; são centenas de MB)
+if [ ! -f "$PFX/system.reg" ]; then
+    notify "Criando o prefixo Proton do Xenia" "Baixa o GE-Proton na primeira vez; pode demorar."
+    mkdir -p "$PFX"
+    WINEPREFIX="$PFX" PROTONPATH="$XENIA_PROTON" GAMEID=0 umu-run "" \
+        || { notify "Falha ao criar o prefixo Proton"; exit 1; }
+fi
+echo "Xenia Canary pronto ($tag)."

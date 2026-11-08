@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Abrir jogo de Switch
+Comment=Abre jogos .xci/.nsp no emulador padrão
+Exec=/usr/bin/switch-open %f
+Icon=applications-games
+Terminal=false
+NoDisplay=true
+Categories=Game;Emulator;
+MimeType=application/x-nx-xci;application/x-nx-nsp;

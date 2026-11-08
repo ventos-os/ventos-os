@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+set -euo pipefail
+DONE=/var/lib/waydroid/.extras-done
+
+# Imagem oficial com Google Play (GAPPS)
+waydroid init -s GAPPS -f
+
+# Rede do Android no firewalld (interface waydroid0)
+if command -v firewall-cmd >/dev/null && firewall-cmd --state >/dev/null 2>&1; then
+    firewall-cmd --permanent --zone=trusted --add-interface=waydroid0 || true
+    firewall-cmd --reload || true
+fi
+
+# Container precisa estar rodando para o script aplicar o overlay
+systemctl start waydroid-container.service
+sleep 5
+waydroid-extras arm || echo "Falha na tradução ARM; rode 'waydroid-extras arm' depois."
+systemctl restart waydroid-container.service
+
+mkdir -p "$(dirname "$DONE")"
+touch "$DONE"

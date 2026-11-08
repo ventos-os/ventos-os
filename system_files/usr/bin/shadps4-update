@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+# shadps4-update: instala/atualiza o shadPS4 (build de linha de comando) pelas releases do GitHub
+set -euo pipefail
+. /usr/libexec/emu-common.sh
+SHADPS4_REPO="shadps4-emu/shadPS4"
+SHADPS4_ASSET_RE='linux.*sdl'
+load_conf
+
+ARGS=("$@"); SCOPE=user; NIGHTLY=false; FORCE=false; DRY=false
+die() { echo "shadps4-update: $*" >&2; exit 1; }
+for a in "$@"; do
+    case "$a" in
+        --system)  SCOPE=system ;;
+        --nightly) NIGHTLY=true ;;
+        --force)   FORCE=true ;;
+        --list)    DRY=true ;;
+        -h|--help) echo "Uso: shadps4-update [--system] [--nightly] [--force] [--list]"; exit 0 ;;
+        *) die "argumento desconhecido: $a" ;;
+    esac
+done
+for c in curl jq unzip sha256sum; do command -v "$c" >/dev/null || die "dependência ausente: $c"; done
+
+if [ "$SCOPE" = system ]; then
+    if [ "$EUID" -ne 0 ] && [ "$DRY" = false ]; then exec sudo "$0" "${ARGS[@]}"; fi
+    ROOT=/opt/shadps4; BIN=/usr/local/bin
+else
+    ROOT="${XDG_DATA_HOME:-$HOME/.local/share}/shadps4"; BIN="$HOME/.local/bin"
+fi
+
+TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
+AUTH=(); [ -n "${GITHUB_TOKEN:-}" ] && AUTH=(-H "Authorization: Bearer $GITHUB_TOKEN")
+
+info="$(curl -fsSL -H 'Accept: application/vnd.github+json' "${AUTH[@]}" \
+    "https://api.github.com/repos/$SHADPS4_REPO/releases?per_page=30" |
+  jq -r --arg re "$SHADPS4_ASSET_RE" --argjson nightly "$NIGHTLY" '
+    map(select(.draft | not))
+    | (if $nightly then . else map(select(.prerelease | not)) end)
+    | map(. as $r
+          | ([ $r.assets[] | select(.name | test($re; "i"))
+                           | select(.name | test("\\.(zip|appimage)$"; "i"))
+                           | select(.name | test("qt"; "i") | not) ] | first) as $a
+          | select($a)
+          | [$r.tag_name, $a.name, $a.browser_download_url, ($a.digest // "")])
+    | (first // empty) | @tsv')" || die "falha ao consultar a API do GitHub (defina GITHUB_TOKEN se for limite)"
+[ -n "$info" ] || die "nenhuma release com build Linux encontrada em $SHADPS4_REPO"
+IFS=$'\t' read -r tag asset url digest <<<"$info"
+echo "release: $tag"; echo "arquivo: $asset"
+[ "$DRY" = true ] && exit 0
+
+if [ "$(cat "$ROOT/VERSION" 2>/dev/null || true)" = "$tag" ] && [ "$FORCE" = false ]; then
+    echo "já está na versão mais recente."; exit 0
+fi
+
+curl -fL --retry 3 --progress-bar -o "$TMP/$asset" "$url"
+if [[ "$digest" == sha256:* ]]; then
+    echo "${digest#sha256:}  $TMP/$asset" | sha256sum -c --quiet - || die "checksum SHA-256 não confere"
+else
+    echo "aviso: sem checksum publicado; integridade não verificada" >&2
+fi
+
+safe="$(printf '%s' "$tag" | tr -c 'A-Za-z0-9._-' '_')"
+dest="$ROOT/versions/$safe"
+rm -rf "$dest"; mkdir -p "$dest" "$BIN"
+case "${asset,,}" in
+    *.zip) unzip -q "$TMP/$asset" -d "$dest" ;;
+    *)     install -m 0755 "$TMP/$asset" "$dest/$asset" ;;
+esac
+exe="$(find "$dest" -type f \( -iname '*.appimage' -o -iname 'shadps4' \) | head -n1)"
+[ -n "$exe" ] || die "não achei o executável em $asset (veja $dest)"
+chmod +x "$exe"
+ln -sfn "$exe" "$BIN/shadps4"
+echo "$tag" > "$ROOT/VERSION"
+ls -1dt "$ROOT/versions"/* | tail -n +4 | xargs -r rm -rf --
+echo "instalado: $BIN/shadps4 ($tag)"

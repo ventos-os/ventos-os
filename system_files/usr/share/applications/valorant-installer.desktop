@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Instalador do VALORANT
+Comment=Abre o instalador do VALORANT (o Vanguard não funciona no Linux)
+Exec=/usr/bin/valorant-installer
+Icon=applications-games
+Terminal=false
+Categories=Game;

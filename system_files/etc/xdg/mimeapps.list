@@ -1,0 +1,20 @@
+[Default Applications]
+application/vnd.microsoft.portable-executable=bottles-open.desktop
+application/x-ms-dos-executable=bottles-open.desktop
+application/x-msdownload=bottles-open.desktop
+application/x-dosexec=bottles-open.desktop
+application/x-msi=bottles-open.desktop
+application/x-bat=bottles-open.desktop
+application/x-msdos-program=bottles-open.desktop
+application/x-ms-shortcut=bottles-open.desktop
+application/x-nx-xci=switch-open.desktop
+application/x-nx-nsp=switch-open.desktop
+application/x-xbox360-xex=xenia-canary.desktop
+application/x-iso9660-image=xenia-canary.desktop
+application/x-ps3-pkg=ps-pkg-open.desktop
+application/x-ps4-self=shadps4.desktop
+application/vnd.android.package-archive=apk-open.desktop
+x-scheme-handler/heroic=com.heroicgameslauncher.hgl.desktop
+x-scheme-handler/lutris=net.lutris.Lutris.desktop
+x-scheme-handler/steam=com.valvesoftware.Steam.desktop
+x-scheme-handler/discord=com.discordapp.Discord.desktop

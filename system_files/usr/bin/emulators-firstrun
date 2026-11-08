@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -u
+STATE="${XDG_STATE_HOME:-$HOME/.local/state}/emulators"
+mkdir -p "$STATE"
+rc=0
+/usr/bin/xenia-setup || rc=1
+/usr/bin/rpcs3-setup || rc=1     # sai com 0 se só faltar o PUP (o .path cuida disso)
+[ "$rc" -eq 0 ] && touch "$STATE/firstrun-done"
+exit "$rc"

@@ -1,0 +1,7 @@
+[Unit]
+Description=Atualizar o Xenia Canary
+ConditionPathExists=%h/.local/state/emulators/firstrun-done
+
+[Service]
+Type=oneshot
+ExecStart=-/usr/bin/xenia-setup

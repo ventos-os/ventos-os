@@ -1,0 +1,150 @@
+name: Build da imagem e ISO
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: ["**.md"]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "0 6 * * 0"   # rebuild semanal para pegar atualizações do Fedora/ublue
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ventos-os
+  FEDORA_VERSION: "latest"   # fixe (ex.: "44") para builds reprodutíveis
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-image:
+    name: Imagem (${{ matrix.variant }})
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - variant: amd
+            suffix: ""
+            base: ghcr.io/ublue-os/kinoite-main
+          - variant: nvidia
+            suffix: "-nvidia"
+            base: ghcr.io/ublue-os/kinoite-nvidia
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Liberar espaço em disco
+        uses: ublue-os/remove-unwanted-software@v9
+
+      - name: Definir nome da imagem (minúsculas)
+        run: |
+          OWNER="${GITHUB_REPOSITORY_OWNER,,}"
+          echo "IMAGE_REF=${OWNER}/${IMAGE_NAME}${{ matrix.suffix }}" >> "$GITHUB_ENV"
+
+      - name: Build
+        id: build
+        uses: redhat-actions/buildah-build@v2
+        with:
+          containerfiles: ./Containerfile
+          image: ${{ env.IMAGE_REF }}
+          tags: latest ${{ github.sha }}
+          oci: false
+          layers: false
+          build-args: |
+            BASE_IMAGE=${{ matrix.base }}
+            FEDORA_VERSION=${{ env.FEDORA_VERSION }}
+
+      - name: Login no GHCR
+        if: github.event_name != 'pull_request'
+        uses: redhat-actions/podman-login@v1
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publicar
+        if: github.event_name != 'pull_request'
+        uses: redhat-actions/push-to-registry@v2
+        with:
+          image: ${{ steps.build.outputs.image }}
+          tags: ${{ steps.build.outputs.tags }}
+          registry: ${{ env.REGISTRY }}
+
+  build-iso:
+    name: ISO (${{ matrix.variant }})
+    needs: build-image
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - variant: amd
+            suffix: ""
+          - variant: nvidia
+            suffix: "-nvidia"
+    steps:
+      - name: Liberar espaço em disco
+        uses: ublue-os/remove-unwanted-software@v9
+
+      - name: Definir nome da imagem (minúsculas)
+        run: |
+          OWNER="${GITHUB_REPOSITORY_OWNER,,}"
+          echo "IMAGE_REF=${REGISTRY}/${OWNER}/${IMAGE_NAME}${{ matrix.suffix }}:latest" >> "$GITHUB_ENV"
+
+      - name: Baixar a imagem para o armazenamento do root
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | sudo podman login ghcr.io -u "${{ github.actor }}" --password-stdin
+          sudo podman pull "$IMAGE_REF"
+
+      - name: Gerar configuração do instalador
+        run: |
+          cat > iso.toml <<EOF
+          [customizations.installer.kickstart]
+          contents = """
+          %post
+          bootc switch --mutate-in-place --transport registry ${IMAGE_REF}
+          %end
+          """
+          EOF
+          sed -i 's/^          //' iso.toml
+          cat iso.toml
+
+      - name: Construir a ISO
+        id: bib
+        uses: osbuild/bootc-image-builder-action@v4
+        with:
+          builder-image: quay.io/centos-bootc/bootc-image-builder:latest
+          config-file: ./iso.toml
+          image: ${{ env.IMAGE_REF }}
+          types: anaconda-iso
+
+      - name: Enviar ISO
+        id: upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: iso-${{ matrix.variant }}
+          path: ${{ steps.bib.outputs.output-directory }}
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+
+      - name: Link de download no resumo
+        run: |
+          {
+            echo "### ISO (${{ matrix.variant }}) pronta"
+            echo ""
+            echo "[Baixar iso-${{ matrix.variant }}.zip](${{ steps.upload.outputs.artifact-url }})"
+            echo ""
+            echo "O download exige login no GitHub. O arquivo expira em 14 dias."
+          } >> "$GITHUB_STEP_SUMMARY"

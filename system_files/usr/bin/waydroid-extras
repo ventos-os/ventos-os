@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+# waydroid-extras: tradução ARM e certificação do Google Play para o Waydroid
+set -euo pipefail
+
+SRC=/usr/share/waydroid_script
+PY=/usr/lib/waydroid-extras-venv/bin/python
+WORK=/var/lib/waydroid-extras/work
+CONF=/usr/share/waydroid-extras.conf
+[ -f /etc/waydroid-extras.conf ] && CONF=/etc/waydroid-extras.conf
+ARM_TRANSLATION=auto
+[ -f "$CONF" ] && . "$CONF"
+
+need_root() {
+    if [ "$EUID" -ne 0 ]; then exec sudo "$0" "$@"; fi
+}
+
+pick_arm() {
+    case "${ARM_TRANSLATION}" in
+        libndk|libhoudini) echo "${ARM_TRANSLATION}" ;;
+        *) if grep -qi 'AuthenticAMD' /proc/cpuinfo; then echo libndk; else echo libhoudini; fi ;;
+    esac
+}
+
+run_script() {
+    # o script grava cache no diretório atual; /usr é somente leitura
+    mkdir -p "$WORK"
+    rsync -a --delete "$SRC"/ "$WORK"/ 2>/dev/null || { rm -rf "$WORK"; cp -a "$SRC" "$WORK"; }
+    ( cd "$WORK" && "$PY" main.py "$@" )
+}
+
+case "${1:-help}" in
+    arm)
+        need_root "$@"
+        t="$(pick_arm)"
+        echo ">> Instalando tradução ARM: $t"
+        run_script install "$t"
+        ;;
+    certify)
+        need_root "$@"
+        echo ">> Android ID para registrar em https://www.google.com/android/uncertified"
+        waydroid shell <<'SH'
+ANDROID_RUNTIME_ROOT=/apex/com.android.runtime ANDROID_DATA=/data ANDROID_TZDATA_ROOT=/apex/com.android.tzdata ANDROID_I18N_ROOT=/apex/com.android.i18n sqlite3 /data/data/com.google.android.gsf/databases/gservices.db "select * from main where name = \"android_id\";"
+SH
+        ;;
+    help|*)
+        cat <<USAGE
+Uso: waydroid-extras <comando>
+  arm       instala a tradução ARM (libndk em AMD, libhoudini em Intel)
+  certify   mostra o Android ID para certificar o Google Play
+USAGE
+        ;;
+esac

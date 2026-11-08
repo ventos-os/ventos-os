@@ -1,0 +1,14 @@
+[Unit]
+Description=Waydroid: inicialização e extras (primeiro boot)
+ConditionPathExists=!/var/lib/waydroid/.extras-done
+After=network-online.target firewalld.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/waydroid-firstboot
+RemainAfterExit=yes
+TimeoutStartSec=infinity
+
+[Install]
+WantedBy=multi-user.target
