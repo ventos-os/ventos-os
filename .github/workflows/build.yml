@@ -45,8 +45,8 @@ jobs:
           python3 -c "import json,glob; [json.load(open(f)) for f in glob.glob('system_files/**/*.json', recursive=True)]"
 
   build-image:
-    needs: lint
     name: Imagem (${{ matrix.variant }})
+    needs: lint
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -68,39 +68,41 @@ jobs:
       - name: Liberar espaço em disco
         uses: ublue-os/remove-unwanted-software@v9
 
+      # As imagens do Universal Blue são grandes. O buildah padrão do runner usa o driver "vfs"
+      # (copia cada camada inteira) e estoura o disco; aqui usamos podman com root (overlay)
+      # e levamos o armazenamento para o disco grande do runner (/mnt).
+      - name: Armazenamento do podman em /mnt
+        run: |
+          sudo mkdir -p /mnt/containers /var/lib/containers
+          sudo mount --bind /mnt/containers /var/lib/containers
+          sudo podman info --format 'driver={{.Store.GraphDriverName}} root={{.Store.GraphRoot}}'
+          df -h / /mnt /var/lib/containers
+
       - name: Definir nome da imagem (minúsculas)
         run: |
           OWNER="${GITHUB_REPOSITORY_OWNER,,}"
-          echo "IMAGE_REF=${OWNER}/${IMAGE_NAME}${{ matrix.suffix }}" >> "$GITHUB_ENV"
+          echo "IMAGE_REF=${REGISTRY}/${OWNER}/${IMAGE_NAME}${{ matrix.suffix }}" >> "$GITHUB_ENV"
 
       - name: Build
-        id: build
-        uses: redhat-actions/buildah-build@v2
-        with:
-          containerfiles: ./Containerfile
-          image: ${{ env.IMAGE_REF }}
-          tags: latest ${{ github.sha }}
-          oci: false
-          layers: false
-          build-args: |
-            BASE_IMAGE=${{ matrix.base }}
-            FEDORA_VERSION=${{ env.FEDORA_VERSION }}
+        run: |
+          sudo podman build \
+            --file Containerfile \
+            --build-arg BASE_IMAGE=${{ matrix.base }} \
+            --build-arg FEDORA_VERSION=${{ env.FEDORA_VERSION }} \
+            --tag "${IMAGE_REF}:latest" \
+            --tag "${IMAGE_REF}:${{ github.sha }}" \
+            .
 
-      - name: Login no GHCR
-        if: github.event_name != 'pull_request'
-        uses: redhat-actions/podman-login@v1
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Espaço em disco após o build
+        if: always()
+        run: df -h / /mnt /var/lib/containers || true
 
-      - name: Publicar
+      - name: Publicar no GHCR
         if: github.event_name != 'pull_request'
-        uses: redhat-actions/push-to-registry@v2
-        with:
-          image: ${{ steps.build.outputs.image }}
-          tags: ${{ steps.build.outputs.tags }}
-          registry: ${{ env.REGISTRY }}
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | sudo podman login ghcr.io -u "${{ github.actor }}" --password-stdin
+          sudo podman push "${IMAGE_REF}:latest"
+          sudo podman push "${IMAGE_REF}:${{ github.sha }}"
 
   build-iso:
     name: ISO (${{ matrix.variant }})
@@ -126,6 +128,12 @@ jobs:
         run: |
           OWNER="${GITHUB_REPOSITORY_OWNER,,}"
           echo "IMAGE_REF=${REGISTRY}/${OWNER}/${IMAGE_NAME}${{ matrix.suffix }}:latest" >> "$GITHUB_ENV"
+
+      - name: Armazenamento do podman em /mnt
+        run: |
+          sudo mkdir -p /mnt/containers /var/lib/containers
+          sudo mount --bind /mnt/containers /var/lib/containers
+          df -h / /mnt
 
       - name: Baixar a imagem para o armazenamento do root
         run: |
