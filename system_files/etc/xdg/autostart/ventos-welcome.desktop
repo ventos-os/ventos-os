@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=Boas-vindas Ventos OS
+Exec=/usr/bin/ventos-welcome --first-run
+OnlyShowIn=KDE;
+X-KDE-autostart-after=panel

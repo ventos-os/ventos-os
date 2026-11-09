@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Boas-vindas
+Comment=Guia de início do Ventos OS
+Exec=/usr/bin/ventos-welcome
+Icon=help-about
+Terminal=false
+Categories=System;

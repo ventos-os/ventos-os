@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# ventos-virtual-keyboard: teclado virtual do Plasma (Wayland)
+#   setup       define o Plasma Keyboard como método de entrada do KWin (aparece sozinho em telas touch)
+#   show        abre o teclado agora, manualmente
+#   always-on   mostra o teclado em qualquer campo de texto, mesmo sem touch (exige novo login)
+#   always-off  volta ao padrão (só em telas touch)
+set -u
+CFG="${VENTOS_CFG_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}}"
+ENVD="${XDG_CONFIG_HOME:-$HOME/.config}/environment.d/50-ventos-keyboard.conf"
+
+case "${1:-help}" in
+    setup)
+        desk="$(grep -lisE 'plasma-keyboard|plasmakeyboard' /usr/share/applications/*.desktop 2>/dev/null | head -n1)"
+        if [ -z "$desk" ]; then echo "Plasma Keyboard não encontrado (pacote plasma-keyboard)." >&2; exit 1; fi
+        kwriteconfig6 --file "$CFG/kwinrc" --group Wayland --key InputMethod "$desk"
+        echo "Método de entrada: $desk"
+        ;;
+    show)
+        busctl --user call org.kde.KWin /VirtualKeyboard org.kde.kwin.VirtualKeyboard forceActivate >/dev/null 2>&1 \
+            || { echo "Não consegui abrir o teclado (KWin/Wayland com Plasma Keyboard ativo?)." >&2; exit 1; }
+        ;;
+    always-on)
+        mkdir -p "$(dirname "$ENVD")"; echo "KWIN_IM_SHOW_ALWAYS=1" > "$ENVD"
+        echo "Ativado. Saia e entre novamente na sessão."
+        ;;
+    always-off)
+        rm -f "$ENVD"; echo "Desativado. Saia e entre novamente na sessão."
+        ;;
+    *) sed -n '2,7p' "$0" ;;
+esac

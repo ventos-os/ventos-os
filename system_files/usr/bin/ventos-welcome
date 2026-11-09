@@ -1,0 +1,90 @@
+#!/usr/bin/env python3
+"""Tela de boas-vindas do Ventos OS (primeiro login). --first-run: só abre se ainda não foi dispensada."""
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+HERE = Path("/usr/lib/ventos/welcome")
+STATE = Path(os.environ.get("XDG_STATE_HOME") or Path.home() / ".local/state") / "ventos"
+MARK = STATE / "welcome-done"
+
+PAGES = [
+    {"title": "Bem-vindo ao Ventos OS",
+     "body": "Um sistema imutável baseado em Fedora Kinoite (KDE Plasma): ele se atualiza por imagem, "
+             "é difícil de quebrar e traz jogos, emuladores e Android prontos para usar.\n\n"
+             "Esta tela explica o essencial. Você pode reabri-la a qualquer momento pelo menu: “Boas-vindas”."},
+    {"title": "Menu e barra de tarefas",
+     "body": "• A barra fica embaixo: menu de aplicativos à esquerda, programas abertos no meio, bandeja do sistema e relógio à direita.\n"
+             "• A tecla Super (Windows) abre o menu.\n"
+             "• Os ícones da área de trabalho funcionam com duplo clique.\n"
+             "• Ctrl+Shift+Esc abre o Gerenciador de Tarefas (processos, CPU, RAM, GPU, disco e rede)."},
+    {"title": "Pesquisa e atalhos",
+     "body": "• Super+S ou Alt+Espaço: pesquisa global (aplicativos, arquivos, configurações, calculadora, conversões e web).\n"
+             "• Super+R: executar comando, abrir pastas, programas e arquivos.\n"
+             "• Super+E: Dolphin (pasta pessoal)   • Super+L: bloquear   • Super+D: mostrar a área de trabalho\n"
+             "• Alt+Tab ou Super+Tab: alternar janelas\n"
+             "• Teclado virtual: aparece sozinho em telas touch; para abrir à mão, procure “Teclado virtual” no menu."},
+    {"title": "Steam, Heroic e Lutris",
+     "body": "• Steam: o Proton já vem ativo para todos os jogos (Configurações → Compatibilidade). Entre com a sua conta.\n"
+             "• Heroic: gerencia Epic Games e GOG. Entre nas contas dentro do Heroic.\n"
+             "• Lutris: para outros instaladores e lojas.\n"
+             "• Programas do Windows: clique duas vezes em .exe, .msi, .bat ou .lnk (abrem pelo Bottles).\n"
+             "• Biblioteca em ~/Games é a pasta liberada para os Flatpaks.\n"
+             "• VALORANT: o Vanguard (anti-cheat de kernel) não funciona no Linux; o atalho na área de trabalho é só um instalador."},
+    {"title": "Emuladores",
+     "body": "• Switch (.xci/.nsp): Eden.   • PS3 (.pkg): RPCS3.   • PS4 (eboot.bin): shadPS4.   • Xbox 360 (.xex/.iso): Xenia Canary.\n"
+             "• Switch 2: comando switch2-fetch (Lichii/Eglantine). Atualização semanal automática.\n"
+             "• Você precisa usar chaves, firmwares e jogos extraídos do seu próprio console. "
+             "O firmware do PS3 é detectado quando o PS3UPDAT.PUP aparecer em Downloads."},
+    {"title": "Android (Waydroid)",
+     "body": "• Clique duas vezes em um .apk para instalar.\n"
+             "• O primeiro boot baixa a imagem do Android com Play Store; acompanhe com: journalctl -u waydroid-firstboot -f\n"
+             "• Para liberar o Google Play: waydroid-extras certify, e registre o ID em google.com/android/uncertified."},
+    {"title": "Modo Jogo",
+     "body": "• Abra “Modo Jogo” no menu, ou escolha a sessão “Modo Jogo” na tela de login (SDDM).\n"
+             "• Biblioteca única: Steam, Heroic (Epic/GOG), Lutris, Bottles, emuladores e Android, com tags, favoritos e mods por jogo.\n"
+             "• Controle: direcionais/analógico, A confirma, B volta, Start menu, Select configurações.\n"
+             "• “Prioridade de jogo” liga GameMode, perfil de energia e silencia notificações enquanto joga, e desfaz tudo ao fechar."},
+    {"title": "Ventos Longes",
+     "body": "• O navegador do sistema: Brave com perfil próprio, bloqueio de anúncios e limitadores de CPU e RAM (como o GX Control).\n"
+             "• Menu do ícone: janela privada, janela Tor (.onion) e modo econômico.\n"
+             "• Para anonimato de verdade, use “Tor Browser” (opção do menu do Ventos Longes); a janela Tor do Brave é mais conveniente, porém menos anônima.\n"
+             "• Limites configuráveis em /etc/ventos-longes.conf."},
+]
+
+
+def main() -> int:
+    if "--first-run" in sys.argv and MARK.exists():
+        return 0
+    from PySide6.QtCore import QObject, QUrl, Slot
+    from PySide6.QtGui import QGuiApplication
+    from PySide6.QtQml import QQmlApplicationEngine
+
+    class Welcome(QObject):
+        @Slot(bool)
+        def finish(self, dont_show_again):
+            if dont_show_again:
+                STATE.mkdir(parents=True, exist_ok=True)
+                MARK.touch()
+            QGuiApplication.quit()
+
+        @Slot()
+        def openGameMode(self):
+            subprocess.Popen(["/usr/bin/ventos-modojogo", "--windowed"], start_new_session=True)
+
+    os.environ.setdefault("QT_QUICK_CONTROLS_STYLE", "Basic")
+    app = QGuiApplication([sys.argv[0]])
+    app.setApplicationName("ventos-welcome")
+    welcome = Welcome()
+    engine = QQmlApplicationEngine()
+    engine.rootContext().setContextProperty("welcome", welcome)
+    engine.rootContext().setContextProperty("pages", PAGES)
+    engine.load(QUrl.fromLocalFile(str(HERE / "welcome.qml")))
+    if not engine.rootObjects():
+        return 1
+    return app.exec()
+
+
+if __name__ == "__main__":
+    sys.exit(main())

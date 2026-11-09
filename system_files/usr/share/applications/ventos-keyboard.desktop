@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Teclado virtual
+Comment=Abre o teclado virtual do Plasma
+Exec=/usr/bin/ventos-virtual-keyboard show
+Icon=input-keyboard-virtual
+Terminal=false
+Categories=Utility;Accessibility;

@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# Modo Jogo: biblioteca unificada em tela cheia (Python + Qt/QML). --fullscreen | --windowed
+exec python3 /usr/lib/ventos/modojogo/main.py "$@"

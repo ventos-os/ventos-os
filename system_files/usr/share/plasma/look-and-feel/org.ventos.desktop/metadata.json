@@ -1,0 +1,12 @@
+{
+    "KPlugin": {
+        "Authors": [{ "Name": "Ventos OS" }],
+        "Description": "Layout tradicional: barra de tarefas inferior, menu à esquerda, bandeja e relógio à direita, ícones na área de trabalho",
+        "Id": "org.ventos.desktop",
+        "License": "GPL-2.0+",
+        "Name": "Ventos Desktop",
+        "Version": "1.0"
+    },
+    "KPackageStructure": "Plasma/LookAndFeel",
+    "X-Plasma-APIVersion": "2"
+}

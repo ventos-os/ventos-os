@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Super+R: abre o KRunner no modo "Executar comando" (comandos, pastas, aplicativos e arquivos).
+set -u
+call() { busctl --user call org.kde.krunner /App org.kde.krunner.App "$@" >/dev/null 2>&1; }
+
+call displaySingleRunner s shell && exit 0     # modo de um único executor: "Linha de comando"
+call display && exit 0                         # KRunner comum
+exec krunner

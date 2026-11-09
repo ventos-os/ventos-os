@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Executar comando
+Comment=Abre o KRunner no modo Executar comando (Super+R)
+Exec=/usr/bin/ventos-run-command
+Icon=system-run
+Terminal=false
+NoDisplay=true
+Categories=System;

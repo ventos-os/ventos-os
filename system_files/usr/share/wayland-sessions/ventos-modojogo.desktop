@@ -1,0 +1,6 @@
+[Desktop Entry]
+Name=Modo Jogo
+Comment=Sessão de jogos em tela cheia (gamescope), com controle
+Exec=/usr/bin/ventos-modojogo-session
+Type=Application
+DesktopNames=gamescope

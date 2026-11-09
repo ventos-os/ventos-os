@@ -4,7 +4,9 @@ set -euo pipefail
 # --- Permissões dos nossos executáveis ---
 for f in bottles-open switch-open switch2-fetch xenia-setup xenia-open xenia-content \
          rpcs3-setup ps-pkg-open shadps4-update shadps4-open apk-open emulators-firstrun \
-         waydroid-extras ventos-longes defaults-firstrun valorant-installer; do
+         waydroid-extras ventos-longes defaults-firstrun valorant-installer \
+         ventos-modojogo ventos-modojogo-session ventos-run-command ventos-virtual-keyboard \
+         ventos-desktop-setup ventos-welcome; do
     chmod 0755 "/usr/bin/$f"
 done
 chmod 0755 /usr/libexec/waydroid-firstboot /usr/libexec/flatpak-preinstall

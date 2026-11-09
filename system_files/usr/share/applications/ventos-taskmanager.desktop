@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Gerenciador de Tarefas
+Comment=Processos, CPU, RAM, GPU, disco e rede (Ctrl+Shift+Esc)
+Exec=plasma-systemmonitor
+Icon=utilities-system-monitor
+Terminal=false
+Categories=System;Monitor;

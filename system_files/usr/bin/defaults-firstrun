@@ -17,6 +17,16 @@ if [ ! -e "$DESK/valorant-installer.desktop" ]; then
         && chmod +x "$DESK/valorant-installer.desktop"
 fi
 
+# 1b) Ícones na área de trabalho: Modo Jogo, Ventos Longes e Claude
+for app in ventos-modojogo ventos-longes claude-ai; do
+    if [ ! -e "$DESK/$app.desktop" ] && [ -f "/usr/share/applications/$app.desktop" ]; then
+        cp "/usr/share/applications/$app.desktop" "$DESK/" && chmod +x "$DESK/$app.desktop"
+    fi
+done
+
+# 1c) Desktop estilo Windows (atalhos, KRunner, tecla Super) para usuários que já existiam antes da imagem
+/usr/bin/ventos-desktop-setup || true
+
 # 2) Steam (Flatpak): "Ativar o Steam Play para todos os outros títulos" com Proton Experimental.
 #    Só cria o arquivo se ele ainda não existir (não mexe em configuração existente).
 STEAM_CFG="$HOME/.var/app/com.valvesoftware.Steam/.local/share/Steam/config"

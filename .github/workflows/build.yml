@@ -20,7 +20,32 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  lint:
+    name: Verificações (scripts, Python, XML, testes)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Dependências
+        run: sudo apt-get update && sudo apt-get install -y shellcheck libxml2-utils python3-yaml
+      - name: Bash (sintaxe + shellcheck)
+        run: |
+          for f in build_files/*.sh system_files/usr/bin/* system_files/usr/libexec/*; do
+            head -n1 "$f" | grep -q python && continue
+            [ "$f" = "system_files/usr/libexec/emu-common.sh" ] && continue
+            bash -n "$f"
+          done
+          shellcheck -S error build_files/*.sh || true
+      - name: Python (compilação + testes do núcleo do Modo Jogo)
+        run: |
+          python3 -m compileall -q system_files/usr/lib/ventos
+          python3 -m unittest discover -s tests -v
+      - name: XML / JSON / SVG
+        run: |
+          xmllint --noout system_files/usr/share/mime/packages/*.xml system_files/usr/share/icons/hicolor/scalable/apps/*.svg
+          python3 -c "import json,glob; [json.load(open(f)) for f in glob.glob('system_files/**/*.json', recursive=True)]"
+
   build-image:
+    needs: lint
     name: Imagem (${{ matrix.variant }})
     runs-on: ubuntu-24.04
     permissions:

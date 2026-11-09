@@ -1,4 +1,5 @@
 [Default Applications]
+inode/directory=org.kde.dolphin.desktop
 application/vnd.microsoft.portable-executable=bottles-open.desktop
 application/x-ms-dos-executable=bottles-open.desktop
 application/x-msdownload=bottles-open.desktop

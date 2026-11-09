@@ -37,5 +37,8 @@ RUN WAYDROID_SCRIPT_REF="${WAYDROID_SCRIPT_REF}" bash /tmp/build_files/40-waydro
 # 5. Torna o /opt (Chrome, Brave) compatível com o sistema imutável
 RUN bash /tmp/build_files/50-opt-relocate.sh
 
-# 6. Permissões, tipos MIME, associações de arquivo e serviços
+# 6. Desktop estilo Windows (KDE) em /etc/skel + Modo Jogo pré-compilado
+RUN bash /tmp/build_files/80-desktop-defaults.sh
+
+# 7. Permissões, tipos MIME, associações de arquivo e serviços
 RUN bash /tmp/build_files/90-finalize.sh

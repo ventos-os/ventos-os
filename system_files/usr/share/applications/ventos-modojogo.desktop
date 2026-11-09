@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=Modo Jogo
+Comment=Biblioteca unificada de jogos em tela cheia, com controle
+Exec=/usr/bin/ventos-modojogo --fullscreen
+Icon=ventos-modojogo
+Terminal=false
+Categories=Game;
+Actions=windowed;
+
+[Desktop Action windowed]
+Name=Abrir em janela
+Exec=/usr/bin/ventos-modojogo --windowed

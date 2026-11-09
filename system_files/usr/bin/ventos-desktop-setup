@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+# ventos-desktop-setup: aplica o desktop "estilo Windows" no KDE Plasma (idempotente).
+#   - no build:         VENTOS_CFG_DIR=/etc/skel/.config ventos-desktop-setup   (usuários novos já nascem configurados)
+#   - em usuário atual: ventos-desktop-setup                                     (roda uma vez no primeiro login)
+set -u
+CFG="${VENTOS_CFG_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}}"
+MARK="$CFG/.ventos-desktop-setup.v1"
+TAB=$'\t'
+
+command -v kwriteconfig6 >/dev/null 2>&1 || { echo "ventos-desktop-setup: kwriteconfig6 não encontrado" >&2; exit 1; }
+[ -z "${VENTOS_CFG_DIR:-}" ] && [ -f "$MARK" ] && [ "${1:-}" != "--force" ] && exit 0
+mkdir -p "$CFG"
+
+kw() { local f="$1"; shift; kwriteconfig6 --file "$CFG/$f" "$@"; }
+sc() { kw kglobalshortcutsrc "$@"; }
+
+# --- 1. Layout: tema global com barra inferior, menu à esquerda, bandeja/relógio à direita, ícones no desktop
+kw kdeglobals --group KDE --key LookAndFeelPackage org.ventos.desktop
+kw kdeglobals --group KDE --key SingleClick false            # duplo clique, como no Windows
+
+# --- 2. Tecla Super/Windows abre o menu de aplicativos
+kw kwinrc --group ModifierOnlyShortcuts --key Meta "org.kde.plasmashell,/PlasmaShell,org.kde.PlasmaShell,activateLauncherMenu"
+
+# --- 3. KRunner como pesquisa global (aplicativos, arquivos, configurações, comandos, calculadora, web)
+kw krunnerrc --group General --key FreeFloating true
+kw krunnerrc --group General --key ActivateWhenTypingOnDesktop true
+for p in baloosearch calculator shell services krunner_systemsettings webshortcuts unitconverter \
+         recentdocuments locations bookmarks windows appstream; do
+    kw krunnerrc --group Plugins --key "${p}Enabled" true
+done
+kw baloofilerc --group "Basic Settings" --key Indexing-Enabled true      # busca de arquivos
+kw kuriikwsfilterrc --group General --key EnableWebShortcuts true        # buscas na web por palavra-chave (ex.: gg:, ddg:)
+kw kuriikwsfilterrc --group General --key DefaultWebShortcut ddg
+
+# --- 4. Atalhos globais (formato: atual,padrão,descrição)
+sc --group services --group ventos-run-command.desktop --key _launch "Meta+R,none,Executar comando"
+sc --group services --group org.kde.dolphin.desktop    --key _launch "Meta+E,none,Dolphin"
+sc --group services --group org.kde.krunner.desktop    --key _launch "Alt+Space${TAB}Alt+F2${TAB}Meta+S,Alt+Space${TAB}Alt+F2,KRunner"
+sc --group services --group ventos-taskmanager.desktop --key _launch "Ctrl+Shift+Esc,none,Gerenciador de Tarefas"
+sc --group ksmserver --key "Lock Session" "Meta+L${TAB}Ctrl+Alt+L,Meta+L${TAB}Ctrl+Alt+L,Bloquear sessão"
+sc --group kwin --key "Show Desktop" "Meta+D,Meta+D,Mostrar a Área de Trabalho"
+sc --group kwin --key "Walk Through Windows" "Alt+Tab${TAB}Meta+Tab,Alt+Tab,Alternar janelas"
+
+# --- 5. Teclado virtual (Plasma Keyboard): automático em telas touch, abrível à mão
+VENTOS_CFG_DIR="$CFG" /usr/bin/ventos-virtual-keyboard setup >/dev/null 2>&1 || true
+
+# --- 6. Usuário já logado: recarrega os atalhos (o layout só vale para perfis novos)
+if [ -z "${VENTOS_CFG_DIR:-}" ]; then
+    systemctl --user try-restart plasma-kglobalaccel.service >/dev/null 2>&1 || true
+    : > "$MARK"
+fi
+echo "ventos-desktop-setup: concluído ($CFG)"

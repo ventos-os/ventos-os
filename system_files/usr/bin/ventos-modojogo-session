@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# Sessão "Modo Jogo" do SDDM: gamescope (quando disponível) + ventos-modojogo.
+# Sem gamescope usa o "cage"; sem nenhum dos dois, cai de volta no Plasma.
+set -u
+
+# garante um barramento D-Bus de sessão
+if [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ] && command -v dbus-run-session >/dev/null 2>&1; then
+    exec dbus-run-session -- "$0" "$@"
+fi
+
+GAMESCOPE_ARGS="--expose-wayland"
+[ -f /etc/ventos-modojogo/gamescope.conf ] && . /etc/ventos-modojogo/gamescope.conf
+[ -f "${XDG_CONFIG_HOME:-$HOME/.config}/ventos-modojogo/gamescope.conf" ] && . "${XDG_CONFIG_HOME:-$HOME/.config}/ventos-modojogo/gamescope.conf"
+
+export XDG_SESSION_TYPE=wayland
+export XDG_CURRENT_DESKTOP=gamescope
+export QT_QUICK_CONTROLS_STYLE=Basic
+
+if command -v gamescope >/dev/null 2>&1; then
+    export QT_QPA_PLATFORM=xcb          # o gamescope hospeda um XWayland
+    # shellcheck disable=SC2086
+    exec gamescope $GAMESCOPE_ARGS -- /usr/bin/ventos-modojogo --fullscreen
+elif command -v cage >/dev/null 2>&1; then
+    export QT_QPA_PLATFORM=wayland
+    exec cage -s -- /usr/bin/ventos-modojogo --fullscreen
+fi
+exec /usr/bin/startplasma-wayland
